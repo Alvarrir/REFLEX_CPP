@@ -1,6 +1,6 @@
 /**
  * @file video_inference_seq.cpp
- * @brief Sequential video segmentation using YOLOv11
+ * @brief Sequential video segmentation using YOLOv11 with live stats and total frame count
  */
 
 #include <opencv2/opencv.hpp>
@@ -104,10 +104,10 @@ int main() {
     const float CONFIDENCE = 0.5f;
     const float IOU = 0.45f;
     const int LOG_INTERVAL = 50;
-    const std::string modelPath = "../../models/Model_6s.onnx";
+    const std::string modelPath = "../../models/Model_6n.onnx";
     const std::string labelsPath = "../../models/classes.names";
-    const std::string inputVideoPath = "../../data/input.mp4";
-    const std::string outputVideoPath = "../../data/output_seq.mp4";
+    const std::string inputVideoPath = "../../data/fastasfuqboi.mp4";
+    const std::string outputVideoPath = "../../data/fastasfuqboi_seq.mp4";
     bool useGPU = false;
 
     std::cout << "Checking YOLOs-CPP required files..." << std::endl;
@@ -124,6 +124,9 @@ int main() {
     int frameWidth = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
     int frameHeight = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
     int fps = static_cast<int>(cap.get(cv::CAP_PROP_FPS));
+    int totalFrames = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_COUNT));
+
+    std::cout << "Total frames in video: " << totalFrames << std::endl;
 
     cv::VideoWriter writer(outputVideoPath, cv::VideoWriter::fourcc('m','p','4','v'), fps, cv::Size(frameWidth, frameHeight));
 
@@ -144,6 +147,24 @@ int main() {
         stats.update(inferenceTime, currentFPS, currentMemory);
         segmentor.drawSegmentationsAndBoxes(frame, results);
 
+        // Overlay stats
+        char inferenceText[50], fpsText[50], memoryText[50], objectsText[50];
+        snprintf(inferenceText, sizeof(inferenceText), "Inference: %.1f ms", inferenceTime);
+        snprintf(fpsText, sizeof(fpsText), "FPS: %.1f", currentFPS);
+        snprintf(memoryText, sizeof(memoryText), "Memory: %zu MB", currentMemory);
+        snprintf(objectsText, sizeof(objectsText), "Objects: %zu", results.size());
+
+        int yOffset = 30;
+        int lineHeight = 30;
+
+        cv::putText(frame, inferenceText, cv::Point(10, yOffset), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,0,0), 2);
+        cv::putText(frame, fpsText, cv::Point(10, yOffset + lineHeight), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,0,0), 2);
+        cv::putText(frame, objectsText, cv::Point(10, yOffset + 2*lineHeight), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,0,0), 2);
+        cv::putText(frame, memoryText, cv::Point(10, yOffset + 3*lineHeight), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,0,0), 2);
+
+        cv::imshow("REFLEX Vision - Seq", frame);
+        if (cv::waitKey(1) == 'q') break;
+
         writer.write(frame);
         stats.log(LOG_INTERVAL);
     }
@@ -151,5 +172,7 @@ int main() {
     stats.finalLog();
     cap.release();
     writer.release();
+    std::cout << "\nVideo saved to: " << outputVideoPath << std::endl;
+    cv::destroyAllWindows();
     return 0;
 }
